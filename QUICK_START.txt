@@ -1,0 +1,124 @@
+╔═══════════════════════════════════════════════════════════╗
+║        🏋️  GYM TRACKER - AVVIO RAPIDO  🏋️                ║
+╚═══════════════════════════════════════════════════════════╝
+
+📦 INSTALLAZIONE E AVVIO LOCALE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1️⃣  Entra nella cartella del progetto:
+    cd gym-tracker-app
+
+2️⃣  Installa le dipendenze:
+    npm install
+
+3️⃣  Avvia l'app:
+    npm run dev
+
+4️⃣  Apri il browser su:
+    http://localhost:3000
+
+✅ L'app è pronta all'uso!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🌐 METTI ONLINE L'APP (3 MINUTI!)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📤 PASSO 1: Carica su GitHub
+
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin https://github.com/TUO-USERNAME/gym-tracker-app.git
+git push -u origin main
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 PASSO 2: Deploy su Vercel (FACILISSIMO!)
+
+Opzione A - Interfaccia Web (CONSIGLIATO):
+  1. Vai su vercel.com
+  2. Fai login con GitHub
+  3. Clicca "New Project"
+  4. Seleziona "gym-tracker-app"
+  5. Clicca "Deploy"
+  6. ✨ FATTO! Link pronto in 1 minuto
+
+Opzione B - Da terminale:
+  npm install -g vercel
+  vercel login
+  vercel --prod
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 ALTERNATIVA: Deploy su Netlify
+
+  1. npm run build
+  2. Vai su netlify.com
+  3. Trascina la cartella "dist" nel sito
+  4. ✨ ONLINE in 10 secondi!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📁 STRUTTURA PROGETTO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+gym-tracker-app/
+├── src/
+│   ├── components/
+│   │   ├── GymTracker.jsx       ← Componente principale
+│   │   ├── PlayerMode.jsx       ← Modalità allenamento
+│   │   └── SettingsModal.jsx    ← Pannello statistiche
+│   ├── data/
+│   │   └── workoutData.js       ← ⚠️ MODIFICA QUI GLI ESERCIZI
+│   ├── App.jsx
+│   ├── index.jsx
+│   └── index.css
+├── package.json
+├── vite.config.js
+├── README.md                     ← Documentazione completa
+└── DEPLOY_GUIDE.md              ← Guida deploy dettagliata
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚙️  PERSONALIZZAZIONE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔹 Modificare esercizi:    src/data/workoutData.js
+🔹 Cambiare colori:        src/data/workoutData.js (campo "color")
+🔹 Modificare componenti:  src/components/
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💪 COMANDI UTILI
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+npm run dev         → Avvia server sviluppo
+npm run build       → Crea build produzione
+npm run preview     → Anteprima build produzione
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🆘 PROBLEMI?
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• Errore "npm not found"?
+  → Installa Node.js da nodejs.org
+
+• Errore durante npm install?
+  → Prova: rm -rf node_modules && npm install
+
+• L'app non si carica?
+  → Controlla che la porta 3000 sia libera
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📚 DOCUMENTAZIONE COMPLETA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Leggi README.md per informazioni dettagliate
+Leggi DEPLOY_GUIDE.md per guida deploy step-by-step
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎉 Buon allenamento! 💪
