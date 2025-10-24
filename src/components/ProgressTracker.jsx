@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Dumbbell, Calendar, Target, Clock, Play, X, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Dumbbell, Calendar, Target, Clock, Play, X, Check, Activity } from 'lucide-react';
 import { workoutDays } from '../data/workoutData';
 import PlayerMode from './PlayerMode';
 import SettingsModal from './SettingsModal';
-import ProgressTracker from './ProgressTracker';
+import ProgressTracker from './ProgressTracker'; // NUOVA IMPORTAZIONE
 
 const GymTracker = () => {
   // Stato per la navigazione e il tracking
@@ -11,19 +11,19 @@ const GymTracker = () => {
   const [currentWeek, setCurrentWeek] = useState(1);
   const [completedSets, setCompletedSets] = useState({});
   const [customWeights, setCustomWeights] = useState({});
-  const [currentView, setCurrentView] = useState('workout');
+  const [currentView, setCurrentView] = useState('workout'); // NUOVO STATO PER LA VISTA
 
   // Stato per i dati di progresso (Peso e Misure)
   const [progressData, setProgressData] = useState({
     start: {
-      weight: '67.3', // Inizializzato con il tuo peso (67.30 kg)
+      weight: '67.3', // Inizializzato con il tuo peso (67.30 kg) [cite: 2025-09-28]
       chest: '', arm_r: '', arm_l: '', leg_r: '', leg_l: '', waist: '', date: ''
     },
     end: {
       weight: '', chest: '', arm_r: '', arm_l: '', leg_r: '', leg_l: '', waist: '', date: ''
     }
   });
-  
+
   // Stato per la modalità Player (allenamento in corso)
   const [playerMode, setPlayerMode] = useState(false);
   const [currentExercise, setCurrentExercise] = useState(0);
@@ -47,25 +47,26 @@ const GymTracker = () => {
   ];
 
   const currentDayData = workoutDays[currentDay];
-  const currentExerciseData = currentDayData.exercises[currentExercise];
+  const currentExerciseData = currentDayData?.exercises[currentExercise];
 
   // Calcola le date di allenamento
   const getWorkoutDate = (week, day) => {
-  const startDate = new Date(2025, 9, 27);
-  const monthLabels = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
-  const weeksOffset = week - 1;
-  let totalDaysToAdd = weeksOffset * 7;
-  const daysInWeek = [0, 1, 3, 4, 5];
-  totalDaysToAdd += daysInWeek[day];
-  
-  const workoutDate = new Date(startDate);
-  workoutDate.setDate(startDate.getDate() + totalDaysToAdd);
-  
-  const dayNum = workoutDate.getDate();
-  const monthName = monthLabels[workoutDate.getMonth()];
-  
-  return { dayNum, monthName };
-};
+    // Data di riferimento (Lun 27/9/2025) basata sui tuoi dati.
+    const startDate = new Date(2025, 9, 27); 
+    const dayLabels = ['Lun', 'Mar', 'Gio', 'Ven', 'Sab'];
+    const weeksOffset = week - 1;
+    let totalDaysToAdd = weeksOffset * 7;
+    // I giorni 0, 1, 2, 3, 4 nella lista dei giorni corrispondono a Lun, Mar, Gio, Ven, Sab
+    const daysInWeek = [0, 1, 3, 4, 5]; 
+    totalDaysToAdd += daysInWeek[day];
+    
+    const workoutDate = new Date(startDate);
+    workoutDate.setDate(startDate.getDate() + totalDaysToAdd);
+    
+    const dayNum = workoutDate.getDate();
+    const month = workoutDate.getMonth() + 1;
+    return `${dayLabels[day]} ${dayNum}/${month}`;
+  };
 
   // Verifica se tutti i set di un giorno sono completati
   const isDayCompleted = (week, day) => {
@@ -103,7 +104,8 @@ const GymTracker = () => {
 
   // Verifica se l'intera settimana è completata
   const isWeekCompleted = (week) => {
-    for (let day = 0; day < 5; day++) {
+    // La logica è basata sul ciclo di 5 giorni (0-4)
+    for (let day = 0; day < 5; day++) { 
       if (isDaySkipped(week, day)) continue;
       if (!isDayCompleted(week, day)) {
         return false;
@@ -111,20 +113,47 @@ const GymTracker = () => {
     }
     return true;
   };
-// Persistenza Dati di Progresso
+
+  // Caricamento Iniziale (Storage)
   useEffect(() => {
-    // Carica i dati all'avvio
+    const storedCompletedSets = localStorage.getItem('gymTrackerCompletedSets');
+    if (storedCompletedSets) {
+      setCompletedSets(JSON.parse(storedCompletedSets));
+    }
+    const storedCustomWeights = localStorage.getItem('gymTrackerCustomWeights');
+    if (storedCustomWeights) {
+      setCustomWeights(JSON.parse(storedCustomWeights));
+    }
+    const storedSkippedDays = localStorage.getItem('gymTrackerSkippedDays');
+    if (storedSkippedDays) {
+      setSkippedDays(JSON.parse(storedSkippedDays));
+    }
+    // NUOVO: Carica i dati di progresso
     const storedProgress = localStorage.getItem('gymTrackerProgressData');
     if (storedProgress) {
       setProgressData(JSON.parse(storedProgress));
     }
   }, []);
 
-  // Funzione per salvare i dati di progresso
+  // Persistenza Dati (Storage)
+  useEffect(() => {
+    localStorage.setItem('gymTrackerCompletedSets', JSON.stringify(completedSets));
+  }, [completedSets]);
+
+  useEffect(() => {
+    localStorage.setItem('gymTrackerCustomWeights', JSON.stringify(customWeights));
+  }, [customWeights]);
+  
+  useEffect(() => {
+    localStorage.setItem('gymTrackerSkippedDays', JSON.stringify(skippedDays));
+  }, [skippedDays]);
+
+  // NUOVA Funzione per salvare i dati di progresso
   const handleSaveProgress = (data) => {
     setProgressData(data);
     localStorage.setItem('gymTrackerProgressData', JSON.stringify(data));
   };
+
   // Countdown del timer di riposo
   useEffect(() => {
     let interval;
@@ -179,8 +208,15 @@ const GymTracker = () => {
     if (currentSet < currentExerciseData.sets - 1) {
       setCurrentSet(currentSet + 1);
       startRest();
+    } else if (currentExercise < currentDayData.exercises.length - 1) {
+       // Se è l'ultimo set dell'esercizio, passa al successivo
+       setCurrentExercise(currentExercise + 1);
+       setCurrentSet(0);
+       startRest();
     } else {
+      // Fine allenamento
       setIsResting(false);
+      // Potresti aggiungere qui una notifica di fine allenamento
     }
   };
 
@@ -217,7 +253,10 @@ const GymTracker = () => {
 
   // Avvia il timer di riposo
   const startRest = () => {
-    const restTime = parseInt(currentExerciseData.rest.split('-')[0]);
+    // La logica di riposo prende il valore più basso del range (es. 90 da "90-120 sec")
+    const restTimeStr = currentExerciseData.rest.split('-')[0].trim().replace('sec', '');
+    const restTime = parseInt(restTimeStr);
+    
     setRestTimer(restTime);
     setIsResting(true);
   };
@@ -266,6 +305,19 @@ const GymTracker = () => {
       </>
     );
   }
+  
+  // NUOVA VISTA: Progress Tracker
+  if (currentView === 'tracker') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white p-4 font-sans">
+        <ProgressTracker 
+          progressData={progressData}
+          onSave={handleSaveProgress}
+          onSwitchView={setCurrentView}
+        />
+      </div>
+    );
+  }
 
   // Vista Principale
   return (
@@ -273,18 +325,33 @@ const GymTracker = () => {
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <Dumbbell className="w-10 h-10 text-blue-400" />
-            <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 text-transparent bg-clip-text">
-              Gym Tracker
-            </h1>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setCurrentView('tracker')}
+              className="p-3 bg-gray-700 text-white rounded-xl hover:bg-gray-600 transition-all shadow-lg flex items-center gap-2 text-sm font-semibold"
+              aria-label="Apri Progress Tracker"
+            >
+              <Activity className="w-5 h-5 text-green-400" />
+              Progressi
+            </button>
+            
+            <div className="flex-1 text-center">
+              <div className="flex items-center justify-center gap-3 mb-1">
+                <Dumbbell className="w-10 h-10 text-blue-400" />
+                <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 text-transparent bg-clip-text">
+                  Gym Tracker
+                </h1>
+              </div>
+              <p className="text-gray-400 text-sm md:text-base">
+                Scheda PPL - Settimana {currentWeek} di 5
+              </p>
+            </div>
+            
+            {/* Placeholder per simmetria */}
+            <div className="w-[105px] h-[40px] hidden sm:block"></div> 
           </div>
-          <p className="text-gray-400 text-sm md:text-base">
-            Scheda PPL - Settimana {currentWeek} di 5
-          </p>
         </div>
 
-        {/* Week Selector */}
         {/* Week Tabs Selector (Professional Upgrade) */}
         <div className="bg-gray-800 bg-opacity-60 backdrop-blur-lg rounded-2xl p-4 mb-6 shadow-xl border border-gray-700">
           <h2 className="text-lg font-bold text-gray-300 mb-3 ml-2 flex items-center gap-2">
@@ -343,25 +410,19 @@ const GymTracker = () => {
               <ChevronLeft className="w-6 h-6" />
             </button>
 
-            <div className="flex flex-col items-center">
-              <div className={`flex flex-col items-center bg-gradient-to-r ${currentDayData.color} rounded-2xl px-6 py-3 mb-3 shadow-lg`}>
+            <div className="flex-1 text-center">
+              <div className={`inline-block bg-gradient-to-r ${currentDayData.color} rounded-2xl px-6 py-3 mb-3 shadow-lg`}>
                 <div className="text-4xl mb-1">{currentDayData.icon}</div>
                 <div className="text-xl font-bold">{currentDayData.shortName}</div>
-                <div className="flex flex-col items-center mt-2">
-                  <div className="text-3xl font-extrabold leading-none">
-                    {getWorkoutDate(currentWeek, currentDay).dayNum}
-                  </div>
-                  <div className="text-xs uppercase tracking-wide opacity-90">
-                    {getWorkoutDate(currentWeek, currentDay).monthName}
-                  </div>
-                </div>
+                <div className="text-xs opacity-90">{getWorkoutDate(currentWeek, currentDay)}</div>
               </div>
+              
               {isDayCompleted(currentWeek, currentDay) && !isDaySkipped(currentWeek, currentDay) && (
-                  <div className="text-green-400 text-sm font-semibold flex items-center gap-1 justify-center mt-2">
-                    <Check className="w-4 h-4" />
-                    Allenamento Completato!
-                  </div>
-                )}
+                <div className="text-green-400 text-sm font-semibold flex items-center gap-1 justify-center mt-2">
+                  <Check className="w-4 h-4" />
+                  Allenamento Completato!
+                </div>
+              )}
             </div>
 
             <button
@@ -474,11 +535,9 @@ const GymTracker = () => {
                           <Clock className="w-4 h-4 text-yellow-400" />
                           <span>
                             {(() => {
+                              // Usa solo il primo valore se è un range (es. 90 da "90-120 sec")
                               const restParts = exercise.rest.replace(' sec', '').split('-').map(s => s.trim());
-                              if (restParts.length === 1) {
-                                return restParts[0] + ' sec';
-                              }
-                              return (currentWeek <= 3 ? restParts[0] : restParts[1]) + ' sec';
+                              return restParts[0] + ' sec';
                             })()}
                           </span>
                         </div>
@@ -487,8 +546,8 @@ const GymTracker = () => {
                           <div className="flex items-center gap-1 bg-purple-500 bg-opacity-20 px-2 py-1 rounded-full border border-purple-500">
                             <Dumbbell className="w-4 h-4 text-purple-400" />
                             <input
-                              type="number"
-                              pattern="[0-9]*"
+                              type="text"
+                              pattern="[0-9]*[.,]?[0-9]*"
                               placeholder="es. 50"
                               autoFocus
                               className="bg-transparent text-white w-16 outline-none font-semibold text-center"
@@ -522,7 +581,8 @@ const GymTracker = () => {
                         ) : (
                           <button
                             onClick={() => {
-                              if (!weekData.weight) {
+                              // Apri la modalità di editing solo se il peso non è preimpostato dalla scheda
+                              if (!weekData.weight || weekData.weight === '') {
                                 setEditingWeight(weightKey);
                               }
                             }}
@@ -573,7 +633,7 @@ const GymTracker = () => {
                         </button>
                       );
                     })}
-                  </div>
+                  </div> 
                 </div>
               );
             })}
@@ -584,5 +644,4 @@ const GymTracker = () => {
   );
 };
 
- 
 export default GymTracker;
