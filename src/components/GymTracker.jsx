@@ -269,7 +269,7 @@ const GymTracker = () => {
 
   // Vista Principale
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white p-4 font-sans">
+    <div className="text-white font-sans">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
