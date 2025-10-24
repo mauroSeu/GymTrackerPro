@@ -38,20 +38,21 @@ const GymTracker = () => {
 
   // Calcola le date di allenamento
   const getWorkoutDate = (week, day) => {
-    const startDate = new Date(2025, 9, 27);
-    const dayLabels = ['Lun', 'Mar', 'Gio', 'Ven', 'Sab'];
-    const weeksOffset = week - 1;
-    let totalDaysToAdd = weeksOffset * 7;
-    const daysInWeek = [0, 1, 3, 4, 5];
-    totalDaysToAdd += daysInWeek[day];
-    
-    const workoutDate = new Date(startDate);
-    workoutDate.setDate(startDate.getDate() + totalDaysToAdd);
-    
-    const dayNum = workoutDate.getDate();
-    const month = workoutDate.getMonth() + 1;
-    return `${dayLabels[day]} ${dayNum}/${month}`;
-  };
+  const startDate = new Date(2025, 9, 27);
+  const monthLabels = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+  const weeksOffset = week - 1;
+  let totalDaysToAdd = weeksOffset * 7;
+  const daysInWeek = [0, 1, 3, 4, 5];
+  totalDaysToAdd += daysInWeek[day];
+  
+  const workoutDate = new Date(startDate);
+  workoutDate.setDate(startDate.getDate() + totalDaysToAdd);
+  
+  const dayNum = workoutDate.getDate();
+  const monthName = monthLabels[workoutDate.getMonth()];
+  
+  return { dayNum, monthName };
+};
 
   // Verifica se tutti i set di un giorno sono completati
   const isDayCompleted = (week, day) => {
@@ -258,58 +259,45 @@ const GymTracker = () => {
         </div>
 
         {/* Week Selector */}
-        <div className="bg-gray-800 bg-opacity-60 backdrop-blur-lg rounded-2xl p-6 mb-6 shadow-xl border border-gray-700">
-          <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={() => setCurrentWeek(Math.max(1, currentWeek - 1))}
-              disabled={currentWeek === 1}
-              className={`p-3 rounded-full transition-all ${
-                currentWeek === 1
-                  ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105'
-              }`}
-              aria-label="Settimana precedente"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-
-            <div className="text-center">
-              <div className="flex items-center gap-2 justify-center mb-2">
-                <Calendar className="w-5 h-5 text-blue-400" />
-                <h2 className="text-2xl font-bold">Settimana {currentWeek}</h2>
-              </div>
-              {isWeekCompleted(currentWeek) && (
-                <div className="text-green-400 text-sm font-semibold flex items-center gap-1 justify-center">
-                  <Check className="w-4 h-4" />
-                  Completata!
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={() => setCurrentWeek(Math.min(5, currentWeek + 1))}
-              disabled={currentWeek === 5}
-              className={`p-3 rounded-full transition-all ${
-                currentWeek === 5
-                  ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105'
-              }`}
-              aria-label="Settimana successiva"
-            >
-              <ChevronRight className="w-6 h-6" />
-            </button>
-          </div>
-
-          {/* Week Progress */}
-          <div className="flex gap-2 mb-2">
-            {Array.from({ length: 5 }).map((_, idx) => (
-              <div
-                key={idx}
-                className={`flex-1 h-2 rounded-full transition-all ${
-                  idx < currentWeek ? 'bg-blue-500' : 'bg-gray-700'
-                }`}
-              />
-            ))}
+        {/* Week Tabs Selector (Professional Upgrade) */}
+        <div className="bg-gray-800 bg-opacity-60 backdrop-blur-lg rounded-2xl p-4 mb-6 shadow-xl border border-gray-700">
+          <h2 className="text-lg font-bold text-gray-300 mb-3 ml-2 flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-blue-400" />
+            Ciclo di 5 Settimane
+          </h2>
+          <div className="grid grid-cols-5 gap-3">
+            {Array.from({ length: 5 }).map((_, weekIndex) => {
+              const weekNumber = weekIndex + 1;
+              const isCurrent = weekNumber === currentWeek;
+              const isCompleted = isWeekCompleted(weekNumber);
+              
+              return (
+                <button
+                  key={weekIndex}
+                  onClick={() => setCurrentWeek(weekNumber)}
+                  className={`p-3 rounded-xl transition-all text-center relative overflow-hidden ${
+                    isCurrent
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50 scale-105'
+                      : isCompleted
+                      ? 'bg-green-700/80 text-white hover:bg-green-600'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                  aria-label={`Settimana ${weekNumber}`}
+                >
+                  {isCompleted && (
+                    <div className="absolute top-1 right-1 bg-white p-0.5 rounded-full">
+                      <Check className="w-3 h-3 text-green-500" />
+                    </div>
+                  )}
+                  <div className="text-xl font-extrabold">
+                    {weekNumber}
+                  </div>
+                  <div className="text-xs font-semibold opacity-90">
+                    Sett.
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -329,19 +317,25 @@ const GymTracker = () => {
               <ChevronLeft className="w-6 h-6" />
             </button>
 
-            <div className="flex-1 text-center">
-              <div className={`inline-block bg-gradient-to-r ${currentDayData.color} rounded-2xl px-6 py-3 mb-3 shadow-lg`}>
+            <div className="flex flex-col items-center">
+              <div className={`flex flex-col items-center bg-gradient-to-r ${currentDayData.color} rounded-2xl px-6 py-3 mb-3 shadow-lg`}>
                 <div className="text-4xl mb-1">{currentDayData.icon}</div>
                 <div className="text-xl font-bold">{currentDayData.shortName}</div>
-                <div className="text-xs opacity-90">{getWorkoutDate(currentWeek, currentDay)}</div>
-              </div>
-              
-              {isDayCompleted(currentWeek, currentDay) && !isDaySkipped(currentWeek, currentDay) && (
-                <div className="text-green-400 text-sm font-semibold flex items-center gap-1 justify-center mt-2">
-                  <Check className="w-4 h-4" />
-                  Allenamento Completato!
+                <div className="flex flex-col items-center mt-2">
+                  <div className="text-3xl font-extrabold leading-none">
+                    {getWorkoutDate(currentWeek, currentDay).dayNum}
+                  </div>
+                  <div className="text-xs uppercase tracking-wide opacity-90">
+                    {getWorkoutDate(currentWeek, currentDay).monthName}
+                  </div>
                 </div>
-              )}
+              </div>
+              {isDayCompleted(currentWeek, currentDay) && !isDaySkipped(currentWeek, currentDay) && (
+                  <div className="text-green-400 text-sm font-semibold flex items-center gap-1 justify-center mt-2">
+                    <Check className="w-4 h-4" />
+                    Allenamento Completato!
+                  </div>
+                )}
             </div>
 
             <button
@@ -564,4 +558,5 @@ const GymTracker = () => {
   );
 };
 
+ 
 export default GymTracker;
