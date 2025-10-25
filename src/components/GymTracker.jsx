@@ -89,11 +89,11 @@ const GymTracker = () => {
   const modalScrollRef = useRef(null);
 
   const dayDisplayMap = [
-    { label: "Push", icon: "💪" },
-    { label: "Legs", icon: "🦵" },
-    { label: "Pull", icon: "🏋️" },
-    { label: "Upper", icon: "💎" },
-    { label: "Recovery", icon: "🧘" }
+    { label: "Push", icon: "💪", iconSvg: <svg className="w-7 h-7 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> },
+    { label: "Legs", icon: "🦵", iconSvg: <svg className="w-7 h-7 mb-1 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19V6l-2 3-2-3"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19V6l2 3 2-3"></path></svg> },
+    { label: "Pull", icon: "🏋️", iconSvg: <svg className="w-7 h-7 mb-1 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v10m8 0V7M3 17h18M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"></path></svg> },
+    { label: "Upper", icon: "💎", iconSvg: <svg className="w-7 h-7 mb-1 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 11V6m0 5l-4-4m4 4l4-4m-4 13v-5m0 5l-4-4m4 4l4-4"></path></svg> },
+    { label: "Recovery", icon: "🧘", iconSvg: <svg className="w-7 h-7 mb-1 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> }
   ];
 
   const currentDayData = workoutDays[currentDay];
@@ -101,7 +101,7 @@ const GymTracker = () => {
 
   // Calcola le date di allenamento
   const getWorkoutDate = (week, day) => {
-    const startDate = new Date(2025, 9, 27);
+    const startDate = new Date(2025, 9, 27); // 27 Ottobre 2025
     const dayLabels = ['Lun', 'Mar', 'Gio', 'Ven', 'Sab'];
     const monthLabels = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
     const weeksOffset = week - 1;
@@ -117,6 +117,19 @@ const GymTracker = () => {
     
     return { dayName: dayLabels[day], dayNum, monthName };
   };
+  
+  // NUOVA Funzione per ottenere il range di date della settimana
+  const getWeekDateRange = (week) => {
+      const startDay = getWorkoutDate(week, 0); // Giorno 0 (Push)
+      const endDay = getWorkoutDate(week, 4); // Giorno 4 (Recovery)
+      
+      if (startDay.monthName === endDay.monthName) {
+          return `Dal ${startDay.dayNum} al ${endDay.dayNum} ${startDay.monthName}`;
+      } else {
+          return `Dal ${startDay.dayNum} ${startDay.monthName} al ${endDay.dayNum} ${endDay.monthName}`;
+      }
+  };
+
 
   // Verifica se tutti i set di un giorno sono completati
   const isDayCompleted = (week, day) => {
@@ -447,215 +460,125 @@ const GymTracker = () => {
   // Main View (Always renders when isLoading is false, using Cache-First data)
   return (
     <div className="text-white font-sans">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-between">
-            {/* Pulsante "Progressi" Rimosso, sostituito con placeholder per simmetria */}
-            <div className="w-[105px] h-[40px] hidden sm:block"></div> 
-            
-            <div className="flex-1 text-center">
-              <div className="flex items-center justify-center gap-3 mb-1">
-                <Dumbbell className="w-10 h-10 text-blue-400" />
-                <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 text-transparent bg-clip-text">
-                  Gym Tracker
-                </h1>
-              </div>
-              <p className="text-gray-400 text-sm md:text-base">
-                Scheda PPL - Settimana {currentWeek} di 5
-              </p>
-            </div>
-            
-            {/* Placeholder for symmetry */}
-            <div className="w-[105px] h-[40px] hidden sm:block"></div> 
-          </div>
-        </div>
+      {/* Vecchio Header e Quick Stats rimossi come da nuovo mockup.
+        La selezione è ora il focus principale.
+      */}
+      <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
 
-        {/* Week Tabs Selector */}
-        <div className="bg-gray-800 bg-opacity-60 backdrop-blur-lg rounded-2xl p-4 mb-6 shadow-xl border border-gray-700">
-          <h2 className="text-lg font-bold text-gray-300 mb-3 ml-2 flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-blue-400" />
-            Ciclo di 5 Settimane
-          </h2>
-          <div className="grid grid-cols-5 gap-3">
-            {Array.from({ length: 5 }).map((_, weekIndex) => {
-              const weekNumber = weekIndex + 1;
-              const isCurrent = weekNumber === currentWeek;
-              const isCompleted = isWeekCompleted(weekNumber);
-              
-              return (
-                <button
-                  key={weekIndex}
-                  onClick={() => setCurrentWeek(weekNumber)}
-                  className={`p-3 rounded-xl transition-all text-center relative overflow-hidden ${
-                    isCurrent
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50 scale-105'
-                      : isCompleted
-                      ? 'bg-green-700/80 text-white hover:bg-green-600'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                  aria-label={`Settimana ${weekNumber}`}
-                >
-                  {isCompleted && (
-                    <div className="absolute top-1 right-1 bg-white p-0.5 rounded-full">
-                      <Check className="w-3 h-3 text-green-500" />
-                    </div>
-                  )}
-                  <div className="text-xl font-extrabold">
+        {/* ====================================================================== */}
+        {/* === NUOVA CARD UNIFICATA (Inizio) === */}
+        {/* ====================================================================== */}
+        <div className="bg-gray-800 bg-opacity-80 backdrop-blur-sm rounded-xl p-6 space-y-6 shadow-2xl border border-gray-700">
+
+          {/* === SEZIONE 1: Navigazione Settimanale === */}
+          <div className="flex items-center justify-between flex-wrap gap-4 border-b border-gray-700 pb-4">
+            
+            {/* Contenitore Titolo e Data */}
+            <div className="flex items-start gap-2">
+              <Calendar className="w-8 h-8 mt-0.5 text-blue-400" />
+
+              <div className="flex flex-col justify-center">
+                <h2 className="text-xl font-extrabold whitespace-nowrap bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 text-transparent bg-clip-text">
+                  Settimana {currentWeek}
+                </h2>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {getWeekDateRange(currentWeek)}
+                </p>
+              </div>
+            </div>
+
+            {/* Chip Settimanali */}
+            <div className="flex space-x-2">
+              {Array.from({ length: 5 }).map((_, weekIndex) => {
+                const weekNumber = weekIndex + 1;
+                const isCurrent = weekNumber === currentWeek;
+                const isCompleted = isWeekCompleted(weekNumber);
+                
+                let chipStyle = "bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600"; // Neutro
+                if (isCompleted) {
+                    chipStyle = "bg-green-700/80 text-white hover:bg-green-600 border border-green-600"; // Completato
+                }
+                if (isCurrent) {
+                    chipStyle = "bg-blue-600 text-white shadow-md shadow-blue-500/50 hover:bg-blue-500 border border-blue-500"; // Attivo
+                }
+
+                return (
+                  <button
+                    key={weekIndex}
+                    onClick={() => setCurrentWeek(weekNumber)}
+                    className={`rounded-lg w-10 h-10 text-sm flex items-center justify-center font-bold flex-shrink-0 transition-all ${chipStyle}`}
+                  >
                     {weekNumber}
-                  </div>
-                  <div className="text-xs font-semibold opacity-90">
-                    Sett.
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Day Navigation */}
-        <div className="bg-gray-800 bg-opacity-60 backdrop-blur-lg rounded-2xl p-6 mb-6 shadow-xl border border-gray-700">
-          <div className="flex items-center justify-between gap-4 mb-6">
-            <button
-              onClick={() => setCurrentDay(Math.max(0, currentDay - 1))}
-              disabled={currentDay === 0}
-              className={`p-3 rounded-full transition-all ${
-                currentDay === 0
-                  ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                  : 'bg-purple-600 text-white hover:bg-purple-700 hover:scale-105'
-              }`}
-              aria-label="Giorno precedente"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-
-            <div className="flex-1 text-center">
-              <div className={`inline-block bg-gradient-to-r ${currentDayData.color} rounded-2xl px-6 py-3 mb-3 shadow-lg`}>
-                <div className="text-4xl mb-1">{currentDayData.icon}</div>
-                <div className="text-xl font-bold">{currentDayData.shortName}</div>
-                <div className="text-xs opacity-90">
-                  {getWorkoutDate(currentWeek, currentDay).dayName} {getWorkoutDate(currentWeek, currentDay).dayNum} {getWorkoutDate(currentWeek, currentDay).monthName}
-                </div>
-              </div>
-              
-              {isDayCompleted(currentWeek, currentDay) && !isDaySkipped(currentWeek, currentDay) && (
-                <div className="text-green-400 text-sm font-semibold flex items-center gap-1 justify-center mt-2">
-                  <Check className="w-4 h-4" />
-                  Allenamento Completato!
-                </div>
-              )}
+                  </button>
+                );
+              })}
             </div>
-
-            <button
-              onClick={() => setCurrentDay(Math.min(4, currentDay + 1))}
-              disabled={currentDay === 4}
-              className={`p-3 rounded-full transition-all ${
-                currentDay === 4
-                  ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                  : 'bg-purple-600 text-white hover:bg-purple-700 hover:scale-105'
-              }`}
-              aria-label="Giorno successivo"
-            >
-              <ChevronRight className="w-6 h-6" />
-            </button>
           </div>
 
-          {/* Day Pills */}
-          <div className="grid grid-cols-5 gap-2">
-            {dayDisplayMap.map((day, idx) => {
-              const isCompleted = isDayCompleted(currentWeek, idx);
-              const isSkipped = isDaySkipped(currentWeek, idx);
-              const isCurrent = idx === currentDay;
-
-              return (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentDay(idx)}
-                  className={`p-3 rounded-xl transition-all text-center ${
-                    isCurrent
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/50 scale-105'
-                      : isSkipped
-                      ? 'bg-gray-700 text-gray-500'
-                      : isCompleted
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                  }`}
-                  aria-label={`Giorno ${day.label}`}
-                >
-                  <div className="text-2xl mb-1">{day.icon}</div>
-                  <div className="text-xs font-semibold">{day.label}</div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Action Buttons (Modificato: Salta Giorno rimosso) */}
-          <div className="mt-6">
-            <button
-              onClick={startPlayerMode}
-              disabled={isDaySkipped(currentWeek, currentDay)}
-              className={`w-full py-4 rounded-full font-bold text-lg transition-transform shadow-xl flex items-center justify-center gap-2 ${
-                isDaySkipped(currentWeek, currentDay)
-                  ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:scale-105'
-              }`}
-              aria-label="Inizia allenamento"
-            >
-              <Play className="w-5 h-5" />
-              Inizia Allenamento
-            </button>
-          </div>
-        </div>
-        
-        {/* Quick Stats Panel (Restyling Dark & WIDER) */}
-        <div className="flex justify-center mb-6">
-          <div className="max-w-4xl w-full bg-gray-800 bg-opacity-60 backdrop-blur-lg rounded-2xl p-4 shadow-xl flex justify-around items-center border border-gray-700">
+          {/* === SEZIONE 2: Tipi di Allenamento (Griglia) === */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             
-            {/* Colonna 1: Durata */}
-            <div className="flex flex-col items-center flex-1">
-              <svg className="w-6 h-6 text-orange-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <div className="text-xl font-extrabold text-white">45m</div>
-              <div className="text-xs text-gray-400 uppercase tracking-wider">Durata</div>
-            </div>
-          
-            {/* Colonna 2: Livello */}
-            <div className="flex flex-col items-center flex-1">
-              <svg className="w-6 h-6 text-orange-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
-              <div className="text-xl font-extrabold text-white">
-                {currentWeek === 1 && "Novellino"}
-                {currentWeek === 2 && "Intermedio"}
-                {currentWeek === 3 && "Avanzato"}
-                {currentWeek === 4 && "Massimale"}
-                {currentWeek === 5 && "Picco"}
-              </div>
-              <div className="text-xs text-gray-400 uppercase tracking-wider">Livello Sett.</div>
-            </div>
-          
-            {/* Colonna 3: Kcal */}
-            <div className="flex flex-col items-center flex-1">
-              <svg className="w-6 h-6 text-orange-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0 1 1-1 2-1s1 1 2 1c0 1 1-1 2-1s1 1 2 1a8 8 0 01-1.343 8.314z" />
-              </svg>
-              {/* Stima Kcal: 181 * (Settimana / 5) per una progressione sommaria */}
-              <div className="text-xl font-extrabold text-white">
-                {Math.round(181 * (currentWeek / 5) * 1.5)}
-              </div> 
-              <div className="text-xs text-gray-400 uppercase tracking-wider">Kcal Stimate</div>
-            </div>
-          </div>
-        </div>
+            {dayDisplayMap.map((day, idx) => {
+                const isCurrent = idx === currentDay;
+                const isCompleted = isDayCompleted(currentWeek, idx);
+                const isSkipped = isDaySkipped(currentWeek, idx);
+                
+                let buttonStyle = "bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600"; // Neutro
+                
+                if (isCompleted && !isSkipped) {
+                    buttonStyle = "bg-green-700/80 text-white hover:bg-green-600 border border-green-600"; // Completato
+                }
+                
+                if (isSkipped) {
+                    buttonStyle = "bg-gray-800 text-gray-500 border border-gray-700 line-through"; // Saltato
+                }
 
-        {/* Exercise List */}
+                if (isCurrent) {
+                    buttonStyle = "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-xl shadow-blue-500/30 border-transparent"; // Attivo
+                }
+
+                return (
+                    <button
+                        key={idx}
+                        onClick={() => setCurrentDay(idx)}
+                        className={`p-3 rounded-xl flex flex-col items-center justify-center text-sm font-bold h-24 transition duration-200 hover:scale-[1.03] ${buttonStyle}`}
+                    >
+                        {day.iconSvg}
+                        {day.label}
+                    </button>
+                );
+            })}
+          </div>
+
+        </div>
+        {/* ====================================================================== */}
+        {/* === NUOVA CARD UNIFICATA (Fine) === */}
+        {/* ====================================================================== */}
+
+
+        {/* === SEZIONE CTA (Spostata fuori dalla card) === */}
+        <button
+          onClick={startPlayerMode}
+          disabled={isDaySkipped(currentWeek, currentDay)}
+          className={`w-full p-5 rounded-xl text-xl font-extrabold text-white shadow-2xl flex items-center justify-center transition duration-200 hover:scale-[1.01] ${
+            isDaySkipped(currentWeek, currentDay)
+              ? 'bg-gray-700 text-gray-500 cursor-not-allowed shadow-none'
+              : 'bg-gradient-to-r from-blue-600 to-purple-600 shadow-blue-700/50'
+          }`}
+          aria-label="Inizia allenamento"
+        >
+          <Play className="w-7 h-7 mr-3" />
+          INIZIA ALLENAMENTO
+        </button>
+
+
+        {/* La lista degli esercizi rimane qui sotto, invariata */}
         {isDaySkipped(currentWeek, currentDay) ? (
           <div className="bg-gray-800 bg-opacity-80 backdrop-blur-lg rounded-2xl p-12 shadow-xl border border-gray-700 text-center">
             <div className="text-6xl mb-4">🚫</div>
             <h3 className="text-2xl font-bold mb-2">Giorno Saltato</h3>
             <p className="text-gray-400">Hai deciso di saltare questo allenamento per la Settimana {currentWeek}.</p>
-            <p className="text-gray-400 text-sm mt-2">Clicca su "Riattiva" per riprendere la progressione.</p>
+            {/* Ho rimosso il pulsante "Riattiva" da qui perché ora la selezione avviene nella card in alto */}
           </div>
         ) : (
           <div className="space-y-4">
