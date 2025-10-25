@@ -1,39 +1,88 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Dumbbell, Calendar, Target, Clock, Play, X, Check } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Dumbbell, Calendar, Target, Clock, Play, X, Check, Activity } from 'lucide-react';
 import { workoutDays } from '../data/workoutData';
 import PlayerMode from './PlayerMode';
 import SettingsModal from './SettingsModal';
 import ProgressTracker from './ProgressTracker';
+import { useFirestore } from '../hooks/useFirestore'; 
+
+// === Hook useDebounce ===
+const useDebounce = (callback, delay) => {
+  const timeoutRef = useRef(null);
+  
+  return useMemo(() => {
+    const debouncedFn = (...args) => {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = setTimeout(() => {
+        callback(...args);
+      }, delay);
+    };
+    
+    debouncedFn.cancel = () => {
+      clearTimeout(timeoutRef.current);
+    };
+    
+    return debouncedFn;
+  }, [callback, delay]);
+};
+
+// === FUNZIONE DI CACHE-FIRST RENDERING (Read-Through) ===
+const getInitialState = (key, defaultValue) => {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : defaultValue;
+  } catch (error) {
+    console.warn(`Errore nel caricamento della cache per ${key}. Verrà usato il valore di default.`, error);
+    return defaultValue;
+  }
+};
 
 const GymTracker = () => {
-  // Stato per la navigazione e il tracking
-  const [currentDay, setCurrentDay] = useState(0);
-  const [currentWeek, setCurrentWeek] = useState(1);
-  const [completedSets, setCompletedSets] = useState({});
-  const [customWeights, setCustomWeights] = useState({});
-  const [currentView, setCurrentView] = useState('workout');
+  // 🔥 Hook Firebase con i 4 pilastri
+  const { 
+    isLoading, 
+    userData, 
+    saveProgress, 
+    saveCustomWeights, 
+    saveSkippedDays,
+    saveProgressData, 
+    processOfflineQueue 
+  } = useFirestore();
+
+  // 🆕 Dichiarazione delle funzioni DEBOUNCED
+  const debouncedSaveProgress = useDebounce(saveProgress, 1000); 
+  const debouncedSaveCustomWeights = useDebounce(saveCustomWeights, 1000);
+  const debouncedSaveSkippedDays = useDebounce(saveSkippedDays, 500);
+  const debouncedSaveProgressData = useDebounce(saveProgressData, 2000);
+
+  // 🆕 STATO INIZIALE CON FALLBACK LOCALE/HARDCODED
+  const [currentDay, setCurrentDay] = useState(getInitialState('currentDay', 0));
+  const [currentWeek, setCurrentWeek] = useState(getInitialState('currentWeek', 1));
+  const [completedSets, setCompletedSets] = useState(getInitialState('completedSets', {}));
+  const [customWeights, setCustomWeights] = useState(getInitialState('customWeights', {}));
+  const [currentView, setCurrentView] = useState(getInitialState('currentView', 'workout'));
 
   // Stato per i dati di progresso (Peso e Misure)
-  const [progressData, setProgressData] = useState({
+  const [progressData, setProgressData] = useState(getInitialState('progressData', {
     start: {
-      weight: '67.3', // Inizializzato con il tuo peso (67.30 kg)
+      weight: '67.3', 
       chest: '', arm_r: '', arm_l: '', leg_r: '', leg_l: '', waist: '', date: ''
     },
     end: {
       weight: '', chest: '', arm_r: '', arm_l: '', leg_r: '', leg_l: '', waist: '', date: ''
     }
-  });
+  }));
   
   // Stato per la modalità Player (allenamento in corso)
-  const [playerMode, setPlayerMode] = useState(false);
-  const [currentExercise, setCurrentExercise] = useState(0);
-  const [currentSet, setCurrentSet] = useState(0);
+  const [playerMode, setPlayerMode] = useState(getInitialState('playerMode', false));
+  const [currentExercise, setCurrentExercise] = useState(getInitialState('currentExercise', 0));
+  const [currentSet, setCurrentSet] = useState(getInitialState('currentSet', 0));
   const [isResting, setIsResting] = useState(false);
   const [restTimer, setRestTimer] = useState(0);
   
   // Stato per le impostazioni e il giorno saltato
   const [showSettings, setShowSettings] = useState(false);
-  const [skippedDays, setSkippedDays] = useState({});
+  const [skippedDays, setSkippedDays] = useState(getInitialState('skippedDays', {}));
   const [editingWeight, setEditingWeight] = useState(null);
   
   const modalScrollRef = useRef(null);
@@ -47,25 +96,26 @@ const GymTracker = () => {
   ];
 
   const currentDayData = workoutDays[currentDay];
-  const currentExerciseData = currentDayData.exercises[currentExercise];
+  const currentExerciseData = currentDayData?.exercises[currentExercise]; 
 
   // Calcola le date di allenamento
   const getWorkoutDate = (week, day) => {
-  const startDate = new Date(2025, 9, 27);
-  const monthLabels = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
-  const weeksOffset = week - 1;
-  let totalDaysToAdd = weeksOffset * 7;
-  const daysInWeek = [0, 1, 3, 4, 5];
-  totalDaysToAdd += daysInWeek[day];
-  
-  const workoutDate = new Date(startDate);
-  workoutDate.setDate(startDate.getDate() + totalDaysToAdd);
-  
-  const dayNum = workoutDate.getDate();
-  const monthName = monthLabels[workoutDate.getMonth()];
-  
-  return { dayNum, monthName };
-};
+    const startDate = new Date(2025, 9, 27);
+    const dayLabels = ['Lun', 'Mar', 'Gio', 'Ven', 'Sab'];
+    const monthLabels = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+    const weeksOffset = week - 1;
+    let totalDaysToAdd = weeksOffset * 7;
+    const daysInWeek = [0, 1, 3, 4, 5];
+    totalDaysToAdd += daysInWeek[day];
+    
+    const workoutDate = new Date(startDate);
+    workoutDate.setDate(startDate.getDate() + totalDaysToAdd);
+    
+    const dayNum = workoutDate.getDate();
+    const monthName = monthLabels[workoutDate.getMonth()];
+    
+    return { dayName: dayLabels[day], dayNum, monthName };
+  };
 
   // Verifica se tutti i set di un giorno sono completati
   const isDayCompleted = (week, day) => {
@@ -111,20 +161,87 @@ const GymTracker = () => {
     }
     return true;
   };
-// Persistenza Dati di Progresso
-  useEffect(() => {
-    // Carica i dati all'avvio
-    const storedProgress = localStorage.getItem('gymTrackerProgressData');
-    if (storedProgress) {
-      setProgressData(JSON.parse(storedProgress));
-    }
-  }, []);
 
-  // Funzione per salvare i dati di progresso
-  const handleSaveProgress = (data) => {
-    setProgressData(data);
-    localStorage.setItem('gymTrackerProgressData', JSON.stringify(data));
-  };
+
+  // 🆕 EFFETTO 0: Persistenza Immediata degli stati UI critici (per Fallback Immediato)
+  useEffect(() => {
+    localStorage.setItem('currentDay', currentDay);
+    localStorage.setItem('currentWeek', currentWeek);
+    localStorage.setItem('currentView', currentView);
+    localStorage.setItem('currentExercise', currentExercise);
+    localStorage.setItem('currentSet', currentSet);
+    localStorage.setItem('playerMode', playerMode);
+  }, [currentDay, currentWeek, currentView, currentExercise, currentSet, playerMode]);
+
+
+  // 🔥 1. Carica dati da Firebase quando disponibili (Cloud > Locale)
+  useEffect(() => {
+    // Quando i dati Cloud arrivano, hanno la priorità e sovrascrivono la cache locale.
+    if (userData) {
+      if (userData.completedSets) setCompletedSets(userData.completedSets);
+      if (userData.customWeights) setCustomWeights(userData.customWeights);
+      if (userData.skippedDays) setSkippedDays(userData.skippedDays);
+      if (userData.progressData) setProgressData(userData.progressData);
+    }
+  }, [userData]);
+
+
+  // 🆕 2. EFFETTO PER COMPLETED SETS (Salvataggio Locale + Debounce)
+  useEffect(() => {
+    // 1. Salvataggio locale IMMEDIATO: Assicura che il dato del Giorno 3 sia disponibile
+    localStorage.setItem('completedSets', JSON.stringify(completedSets));
+    
+    // 2. Chiamata API disciplinata
+    if (!isLoading && Object.keys(completedSets).length > 0) {
+      debouncedSaveProgress(completedSets);
+    }
+    return () => { 
+      debouncedSaveProgress.cancel(); 
+    };
+  }, [completedSets, isLoading, debouncedSaveProgress]);
+  
+  // 🆕 3. EFFETTO PER CUSTOM WEIGHTS (Salvataggio Locale + Debounce)
+  useEffect(() => {
+    localStorage.setItem('customWeights', JSON.stringify(customWeights));
+    if (!isLoading && Object.keys(customWeights).length > 0) {
+      debouncedSaveCustomWeights(customWeights);
+    }
+    return () => {
+      debouncedSaveCustomWeights.cancel();
+    };
+  }, [customWeights, isLoading, debouncedSaveCustomWeights]);
+
+  // 🆕 4. EFFETTO PER SKIPPED DAYS (Salvataggio Locale + Debounce)
+  useEffect(() => {
+    localStorage.setItem('skippedDays', JSON.stringify(skippedDays));
+    if (!isLoading) {
+      debouncedSaveSkippedDays(skippedDays);
+    }
+    return () => {
+      debouncedSaveSkippedDays.cancel();
+    };
+  }, [skippedDays, isLoading, debouncedSaveSkippedDays]);
+  
+  // 🆕 5. EFFETTO PER PROGRESS DATA (Salvataggio Locale + Debounce)
+  useEffect(() => {
+    localStorage.setItem('progressData', JSON.stringify(progressData));
+    if (!isLoading && progressData && progressData.start && progressData.start.weight) {
+      debouncedSaveProgressData(progressData);
+    }
+    return () => {
+      debouncedSaveProgressData.cancel();
+    };
+  }, [progressData, isLoading, debouncedSaveProgressData]);
+
+
+  // 🆕 6. EFFETTO CRITICO PER L'AUTO-RETRY (Sincronizzazione Attiva)
+  useEffect(() => {
+    if (!isLoading && processOfflineQueue && navigator.onLine) {
+        processOfflineQueue(); 
+    }
+  }, [isLoading, processOfflineQueue]);
+  
+
   // Countdown del timer di riposo
   useEffect(() => {
     let interval;
@@ -166,19 +283,25 @@ const GymTracker = () => {
   // Avvia la modalità Player
   const startPlayerMode = () => {
     setPlayerMode(true);
-    setCurrentExercise(0);
-    setCurrentSet(0);
+    setCurrentExercise(getInitialState('currentExercise', 0));
+    setCurrentSet(getInitialState('currentSet', 0));
     setIsResting(false);
     setRestTimer(0);
   };
 
   // Completa il set corrente e avvia il riposo
   const completeSet = () => {
+    if (!currentExerciseData) return;
+    
     toggleSetComplete(currentExercise, currentSet);
     
     if (currentSet < currentExerciseData.sets - 1) {
       setCurrentSet(currentSet + 1);
       startRest();
+    } else if (currentExercise < currentDayData.exercises.length - 1) {
+       setCurrentExercise(currentExercise + 1);
+       setCurrentSet(0);
+       startRest();
     } else {
       setIsResting(false);
     }
@@ -186,6 +309,8 @@ const GymTracker = () => {
 
   // Salta il set corrente
   const skipSet = () => {
+    if (!currentExerciseData) return;
+    
     if (currentSet < currentExerciseData.sets - 1) {
       setCurrentSet(currentSet + 1);
     } else {
@@ -217,7 +342,11 @@ const GymTracker = () => {
 
   // Avvia il timer di riposo
   const startRest = () => {
-    const restTime = parseInt(currentExerciseData.rest.split('-')[0]);
+    if (!currentExerciseData) return; // Protezione
+
+    const restTimeStr = currentExerciseData.rest.split('-')[0].trim().replace('sec', '');
+    const restTime = parseInt(restTimeStr);
+    
     setRestTimer(restTime);
     setIsResting(true);
   };
@@ -227,6 +356,11 @@ const GymTracker = () => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+  
+  const handleSaveProgress = (data) => {
+    setProgressData(data);
+    // La chiamata API è gestita dal Debounce
   };
 
   // Vista Player Mode
@@ -266,25 +400,65 @@ const GymTracker = () => {
       </>
     );
   }
+  
+  // NUOVA VISTA: Progress Tracker
+  if (currentView === 'tracker') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white p-4 font-sans">
+        <ProgressTracker 
+          progressData={progressData}
+          onSave={handleSaveProgress}
+          onSwitchView={setCurrentView}
+        />
+      </div>
+    );
+  }
 
+  // 🔥 Se isLoading è true, mostra il loader per 3s, poi si sblocca (grazie al timeout in useFirestore)
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent"></div>
+          <p className="mt-4 text-slate-300 text-lg font-semibold">🔥 Caricamento dati...</p>
+        </div>
+      </div>
+    );
+  }
+  
   // Vista Principale
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white p-4 font-sans">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <Dumbbell className="w-10 h-10 text-blue-400" />
-            <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 text-transparent bg-clip-text">
-              Gym Tracker
-            </h1>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setCurrentView('tracker')}
+              className="p-3 bg-gray-700 text-white rounded-xl hover:bg-gray-600 transition-all shadow-lg flex items-center gap-2 text-sm font-semibold"
+              aria-label="Apri Progress Tracker"
+            >
+              <Activity className="w-5 h-5 text-green-400" />
+              Progressi
+            </button>
+            
+            <div className="flex-1 text-center">
+              <div className="flex items-center justify-center gap-3 mb-1">
+                <Dumbbell className="w-10 h-10 text-blue-400" />
+                <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 text-transparent bg-clip-text">
+                  Gym Tracker
+                </h1>
+              </div>
+              <p className="text-gray-400 text-sm md:text-base">
+                Scheda PPL - Settimana {currentWeek} di 5
+              </p>
+            </div>
+            
+            {/* Placeholder per simmetria */}
+            <div className="w-[105px] h-[40px] hidden sm:block"></div> 
           </div>
-          <p className="text-gray-400 text-sm md:text-base">
-            Scheda PPL - Settimana {currentWeek} di 5
-          </p>
         </div>
 
-        {/* Week Selector */}
         {/* Week Tabs Selector (Professional Upgrade) */}
         <div className="bg-gray-800 bg-opacity-60 backdrop-blur-lg rounded-2xl p-4 mb-6 shadow-xl border border-gray-700">
           <h2 className="text-lg font-bold text-gray-300 mb-3 ml-2 flex items-center gap-2">
@@ -343,25 +517,21 @@ const GymTracker = () => {
               <ChevronLeft className="w-6 h-6" />
             </button>
 
-            <div className="flex flex-col items-center">
-              <div className={`flex flex-col items-center bg-gradient-to-r ${currentDayData.color} rounded-2xl px-6 py-3 mb-3 shadow-lg`}>
+            <div className="flex-1 text-center">
+              <div className={`inline-block bg-gradient-to-r ${currentDayData.color} rounded-2xl px-6 py-3 mb-3 shadow-lg`}>
                 <div className="text-4xl mb-1">{currentDayData.icon}</div>
                 <div className="text-xl font-bold">{currentDayData.shortName}</div>
-                <div className="flex flex-col items-center mt-2">
-                  <div className="text-3xl font-extrabold leading-none">
-                    {getWorkoutDate(currentWeek, currentDay).dayNum}
-                  </div>
-                  <div className="text-xs uppercase tracking-wide opacity-90">
-                    {getWorkoutDate(currentWeek, currentDay).monthName}
-                  </div>
+                <div className="text-xs opacity-90">
+                  {getWorkoutDate(currentWeek, currentDay).dayName} {getWorkoutDate(currentWeek, currentDay).dayNum} {getWorkoutDate(currentWeek, currentDay).monthName}
                 </div>
               </div>
+              
               {isDayCompleted(currentWeek, currentDay) && !isDaySkipped(currentWeek, currentDay) && (
-                  <div className="text-green-400 text-sm font-semibold flex items-center gap-1 justify-center mt-2">
-                    <Check className="w-4 h-4" />
-                    Allenamento Completato!
-                  </div>
-                )}
+                <div className="text-green-400 text-sm font-semibold flex items-center gap-1 justify-center mt-2">
+                  <Check className="w-4 h-4" />
+                  Allenamento Completato!
+                </div>
+              )}
             </div>
 
             <button
@@ -398,6 +568,7 @@ const GymTracker = () => {
                       ? 'bg-green-600 text-white'
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                   }`}
+                  aria-label={`Giorno ${day.label}`}
                 >
                   <div className="text-2xl mb-1">{day.icon}</div>
                   <div className="text-xs font-semibold">{day.label}</div>
@@ -475,10 +646,7 @@ const GymTracker = () => {
                           <span>
                             {(() => {
                               const restParts = exercise.rest.replace(' sec', '').split('-').map(s => s.trim());
-                              if (restParts.length === 1) {
-                                return restParts[0] + ' sec';
-                              }
-                              return (currentWeek <= 3 ? restParts[0] : restParts[1]) + ' sec';
+                              return restParts[0] + ' sec';
                             })()}
                           </span>
                         </div>
@@ -487,8 +655,8 @@ const GymTracker = () => {
                           <div className="flex items-center gap-1 bg-purple-500 bg-opacity-20 px-2 py-1 rounded-full border border-purple-500">
                             <Dumbbell className="w-4 h-4 text-purple-400" />
                             <input
-                              type="number"
-                              pattern="[0-9]*"
+                              type="text"
+                              pattern="[0-9]*[.,]?[0-9]*"
                               placeholder="es. 50"
                               autoFocus
                               className="bg-transparent text-white w-16 outline-none font-semibold text-center"
@@ -522,7 +690,7 @@ const GymTracker = () => {
                         ) : (
                           <button
                             onClick={() => {
-                              if (!weekData.weight) {
+                              if (!weekData.weight || weekData.weight === '') {
                                 setEditingWeight(weightKey);
                               }
                             }}
@@ -573,7 +741,7 @@ const GymTracker = () => {
                         </button>
                       );
                     })}
-                  </div>
+                  </div> 
                 </div>
               );
             })}
@@ -584,5 +752,4 @@ const GymTracker = () => {
   );
 };
 
- 
 export default GymTracker;
