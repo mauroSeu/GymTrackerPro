@@ -18,6 +18,7 @@ const useDebounce = (callback, delay) => {
       }, delay);
     };
     
+    // Funzione .cancel() per la pulizia
     debouncedFn.cancel = () => {
       clearTimeout(timeoutRef.current);
     };
@@ -26,19 +27,21 @@ const useDebounce = (callback, delay) => {
   }, [callback, delay]);
 };
 
-// === FUNZIONE DI CACHE-FIRST RENDERING (Read-Through) ===
+// === FUNZIONE DI CACHE-FIRST RENDERING (Lettura di Fallback) ===
 const getInitialState = (key, defaultValue) => {
   try {
     const item = localStorage.getItem(key);
+    // Returns the saved value, or the default if null/error
     return item ? JSON.parse(item) : defaultValue;
   } catch (error) {
-    console.warn(`Errore nel caricamento della cache per ${key}. Verrà usato il valore di default.`, error);
+    console.warn(`Error loading cache for ${key}. Using default value.`, error);
     return defaultValue;
   }
 };
 
 const GymTracker = () => {
   // 🔥 Hook Firebase con i 4 pilastri
+  // lastSyncedData è cruciale per la logica anti-loop
   const { 
     isLoading, 
     userData, 
@@ -46,23 +49,22 @@ const GymTracker = () => {
     saveCustomWeights, 
     saveSkippedDays,
     saveProgressData, 
-    processOfflineQueue 
+    processOfflineQueue,
+    lastSyncedData 
   } = useFirestore();
 
-  // 🆕 Dichiarazione delle funzioni DEBOUNCED
+  // Debounced Functions
   const debouncedSaveProgress = useDebounce(saveProgress, 1000); 
   const debouncedSaveCustomWeights = useDebounce(saveCustomWeights, 1000);
   const debouncedSaveSkippedDays = useDebounce(saveSkippedDays, 500);
   const debouncedSaveProgressData = useDebounce(saveProgressData, 2000);
 
-  // 🆕 STATO INIZIALE CON FALLBACK LOCALE/HARDCODED
+  // STATI INIZIALI CON FALLBACK LOCALE/HARDCODED
   const [currentDay, setCurrentDay] = useState(getInitialState('currentDay', 0));
   const [currentWeek, setCurrentWeek] = useState(getInitialState('currentWeek', 1));
   const [completedSets, setCompletedSets] = useState(getInitialState('completedSets', {}));
   const [customWeights, setCustomWeights] = useState(getInitialState('customWeights', {}));
   const [currentView, setCurrentView] = useState(getInitialState('currentView', 'workout'));
-
-  // Stato per i dati di progresso (Peso e Misure)
   const [progressData, setProgressData] = useState(getInitialState('progressData', {
     start: {
       weight: '67.3', 
@@ -73,14 +75,11 @@ const GymTracker = () => {
     }
   }));
   
-  // Stato per la modalità Player (allenamento in corso)
   const [playerMode, setPlayerMode] = useState(getInitialState('playerMode', false));
   const [currentExercise, setCurrentExercise] = useState(getInitialState('currentExercise', 0));
   const [currentSet, setCurrentSet] = useState(getInitialState('currentSet', 0));
   const [isResting, setIsResting] = useState(false);
   const [restTimer, setRestTimer] = useState(0);
-  
-  // Stato per le impostazioni e il giorno saltato
   const [showSettings, setShowSettings] = useState(false);
   const [skippedDays, setSkippedDays] = useState(getInitialState('skippedDays', {}));
   const [editingWeight, setEditingWeight] = useState(null);
@@ -163,7 +162,7 @@ const GymTracker = () => {
   };
 
 
-  // 🆕 EFFETTO 0: Persistenza Immediata degli stati UI critici (per Fallback Immediato)
+  // 🆕 EFFECT 0: Persistenza Immediata degli stati UI critici (per Fallback Immediato)
   useEffect(() => {
     localStorage.setItem('currentDay', currentDay);
     localStorage.setItem('currentWeek', currentWeek);
@@ -186,63 +185,80 @@ const GymTracker = () => {
   }, [userData]);
 
 
-  // 🆕 2. EFFETTO PER COMPLETED SETS (Salvataggio Locale + Debounce)
+  // 🆕 2. EFFECT PER COMPLETED SETS (Salvataggio Locale + Debounce Anti-Loop)
   useEffect(() => {
-    // 1. Salvataggio locale IMMEDIATO: Assicura che il dato del Giorno 3 sia disponibile
+    // 1. Salvataggio locale IMMEDIATO
     localStorage.setItem('completedSets', JSON.stringify(completedSets));
     
-    // 2. Chiamata API disciplinata
-    if (!isLoading && Object.keys(completedSets).length > 0) {
+    // 2. Chiamata API disciplinata: CONTROLLO ANTI-LOOP
+    const currentJson = JSON.stringify(completedSets);
+    const lastSyncedJson = JSON.stringify(lastSyncedData?.completedSets || {});
+    
+    // ⚠️ Salva su Cloud SOLO se non è in caricamento E il dato è cambiato rispetto all'ultima sincronizzazione riuscita
+    if (!isLoading && currentJson !== lastSyncedJson) {
       debouncedSaveProgress(completedSets);
     }
     return () => { 
       debouncedSaveProgress.cancel(); 
     };
-  }, [completedSets, isLoading, debouncedSaveProgress]);
+  }, [completedSets, isLoading, debouncedSaveProgress, lastSyncedData]);
   
-  // 🆕 3. EFFETTO PER CUSTOM WEIGHTS (Salvataggio Locale + Debounce)
+  // 🆕 3. EFFECT PER CUSTOM WEIGHTS (Salvataggio Locale + Debounce Anti-Loop)
   useEffect(() => {
     localStorage.setItem('customWeights', JSON.stringify(customWeights));
-    if (!isLoading && Object.keys(customWeights).length > 0) {
+    
+    const currentJson = JSON.stringify(customWeights);
+    const lastSyncedJson = JSON.stringify(lastSyncedData?.customWeights || {});
+
+    if (!isLoading && currentJson !== lastSyncedJson) {
       debouncedSaveCustomWeights(customWeights);
     }
     return () => {
       debouncedSaveCustomWeights.cancel();
     };
-  }, [customWeights, isLoading, debouncedSaveCustomWeights]);
+  }, [customWeights, isLoading, debouncedSaveCustomWeights, lastSyncedData]);
 
-  // 🆕 4. EFFETTO PER SKIPPED DAYS (Salvataggio Locale + Debounce)
+  // 🆕 4. EFFECT PER SKIPPED DAYS (Salvataggio Locale + Debounce Anti-Loop)
   useEffect(() => {
     localStorage.setItem('skippedDays', JSON.stringify(skippedDays));
-    if (!isLoading) {
+    
+    const currentJson = JSON.stringify(skippedDays);
+    const lastSyncedJson = JSON.stringify(lastSyncedData?.skippedDays || {});
+
+    if (!isLoading && currentJson !== lastSyncedJson) {
       debouncedSaveSkippedDays(skippedDays);
     }
     return () => {
       debouncedSaveSkippedDays.cancel();
     };
-  }, [skippedDays, isLoading, debouncedSaveSkippedDays]);
+  }, [skippedDays, isLoading, debouncedSaveSkippedDays, lastSyncedData]);
   
-  // 🆕 5. EFFETTO PER PROGRESS DATA (Salvataggio Locale + Debounce)
+  // 🆕 5. EFFECT PER PROGRESS DATA (Salvataggio Locale + Debounce Anti-Loop)
   useEffect(() => {
     localStorage.setItem('progressData', JSON.stringify(progressData));
-    if (!isLoading && progressData && progressData.start && progressData.start.weight) {
+
+    const currentJson = JSON.stringify(progressData);
+    const lastSyncedJson = JSON.stringify(lastSyncedData?.progressData || {});
+    
+    if (!isLoading && currentJson !== lastSyncedJson) {
       debouncedSaveProgressData(progressData);
     }
     return () => {
       debouncedSaveProgressData.cancel();
     };
-  }, [progressData, isLoading, debouncedSaveProgressData]);
+  }, [progressData, isLoading, debouncedSaveProgressData, lastSyncedData]);
 
 
-  // 🆕 6. EFFETTO CRITICO PER L'AUTO-RETRY (Sincronizzazione Attiva)
+  // 🆕 6. CRITICAL EFFECT FOR AUTO-RETRY (Active Synchronization)
   useEffect(() => {
+    // Si attiva solo DOPO il caricamento iniziale (che include il fallback)
     if (!isLoading && processOfflineQueue && navigator.onLine) {
         processOfflineQueue(); 
     }
   }, [isLoading, processOfflineQueue]);
   
 
-  // Countdown del timer di riposo
+  // Rest Timer Logic (unchanged)
   useEffect(() => {
     let interval;
     if (isResting && restTimer > 0) {
@@ -259,7 +275,7 @@ const GymTracker = () => {
     return () => clearInterval(interval);
   }, [isResting, restTimer]);
 
-  // Auto-scroll all'esercizio corrente
+  // Auto-scroll logic (unchanged)
   useEffect(() => {
     if (showSettings && modalScrollRef.current) {
       const cardWidth = 320 + 16;
@@ -271,7 +287,7 @@ const GymTracker = () => {
     }
   }, [showSettings, currentExercise]);
 
-  // Toggle per segnare un set come completato/non completato
+  // Toggle Set Complete (unchanged)
   const toggleSetComplete = (exerciseIndex, setIndex) => {
     const key = `${currentDay}-${currentWeek}-${exerciseIndex}-${setIndex}`;
     setCompletedSets(prev => ({
@@ -280,7 +296,7 @@ const GymTracker = () => {
     }));
   };
 
-  // Avvia la modalità Player
+  // Player Mode Activation
   const startPlayerMode = () => {
     setPlayerMode(true);
     setCurrentExercise(getInitialState('currentExercise', 0));
@@ -289,7 +305,7 @@ const GymTracker = () => {
     setRestTimer(0);
   };
 
-  // Completa il set corrente e avvia il riposo
+  // Complete Set Logic (unchanged)
   const completeSet = () => {
     if (!currentExerciseData) return;
     
@@ -307,7 +323,7 @@ const GymTracker = () => {
     }
   };
 
-  // Salta il set corrente
+  // Skip Set Logic (unchanged)
   const skipSet = () => {
     if (!currentExerciseData) return;
     
@@ -322,7 +338,7 @@ const GymTracker = () => {
     setIsResting(false);
   };
 
-  // Naviga all'esercizio precedente
+  // Navigation Logic (unchanged)
   const previousExercise = () => {
     if (currentExercise > 0) {
       setCurrentExercise(currentExercise - 1);
@@ -331,7 +347,7 @@ const GymTracker = () => {
     }
   };
 
-  // Naviga all'esercizio successivo
+  // Navigation Logic (unchanged)
   const nextExercise = () => {
     if (currentExercise < currentDayData.exercises.length - 1) {
       setCurrentExercise(currentExercise + 1);
@@ -340,9 +356,9 @@ const GymTracker = () => {
     }
   };
 
-  // Avvia il timer di riposo
+  // Start Rest Logic (unchanged)
   const startRest = () => {
-    if (!currentExerciseData) return; // Protezione
+    if (!currentExerciseData) return; 
 
     const restTimeStr = currentExerciseData.rest.split('-')[0].trim().replace('sec', '');
     const restTime = parseInt(restTimeStr);
@@ -351,7 +367,7 @@ const GymTracker = () => {
     setIsResting(true);
   };
 
-  // Formatta i secondi in M:SS
+  // Format Time (unchanged)
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -360,10 +376,11 @@ const GymTracker = () => {
   
   const handleSaveProgress = (data) => {
     setProgressData(data);
-    // La chiamata API è gestita dal Debounce
   };
 
-  // Vista Player Mode
+  // --- RENDERING ---
+
+  // Player Mode View
   if (playerMode) {
     return (
       <>
@@ -401,7 +418,7 @@ const GymTracker = () => {
     );
   }
   
-  // NUOVA VISTA: Progress Tracker
+  // Progress Tracker View
   if (currentView === 'tracker') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white p-4 font-sans">
@@ -414,7 +431,7 @@ const GymTracker = () => {
     );
   }
 
-  // 🔥 Se isLoading è true, mostra il loader per 3s, poi si sblocca (grazie al timeout in useFirestore)
+  // Loader (Only active during the 3s timeout or successful connection attempt)
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
@@ -426,7 +443,7 @@ const GymTracker = () => {
     );
   }
   
-  // Vista Principale
+  // Main View (Always renders when isLoading is false, using Cache-First data)
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white p-4 font-sans">
       <div className="max-w-5xl mx-auto">
@@ -454,12 +471,12 @@ const GymTracker = () => {
               </p>
             </div>
             
-            {/* Placeholder per simmetria */}
+            {/* Placeholder for symmetry */}
             <div className="w-[105px] h-[40px] hidden sm:block"></div> 
           </div>
         </div>
 
-        {/* Week Tabs Selector (Professional Upgrade) */}
+        {/* Week Tabs Selector */}
         <div className="bg-gray-800 bg-opacity-60 backdrop-blur-lg rounded-2xl p-4 mb-6 shadow-xl border border-gray-700">
           <h2 className="text-lg font-bold text-gray-300 mb-3 ml-2 flex items-center gap-2">
             <Calendar className="w-5 h-5 text-blue-400" />
@@ -690,6 +707,7 @@ const GymTracker = () => {
                         ) : (
                           <button
                             onClick={() => {
+                              // Apri la modalità di editing solo se il peso non è preimpostato dalla scheda
                               if (!weekData.weight || weekData.weight === '') {
                                 setEditingWeight(weightKey);
                               }

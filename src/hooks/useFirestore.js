@@ -3,16 +3,16 @@ import { useState, useEffect } from 'react';
 import { db } from '../firebase/config'; 
 import { doc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore'; 
 
-// --- UTILITY PER LA RESILIENZA OFFLINE (WRITE-BEHIND) ---
+// --- UTILITY FOR OFFLINE RESILIENCE (WRITE-BEHIND) ---
 const OFFLINE_QUEUE_KEY = 'offlineSyncQueue';
-const LOAD_TIMEOUT_MS = 3000; // Timeout di 3 secondi per il caricamento
+const LOAD_TIMEOUT_MS = 3000; // 3 second timeout for loading
 
 const loadOfflineQueue = () => {
   try {
     const queue = localStorage.getItem(OFFLINE_QUEUE_KEY);
     return queue ? JSON.parse(queue) : [];
   } catch (e) {
-    console.error("Errore nel caricamento della coda offline:", e);
+    console.error("Error loading offline queue:", e);
     return [];
   }
 };
@@ -24,56 +24,68 @@ const saveToOfflineQueue = (field, data) => {
 };
 
 
-// --- HOOK PRINCIPALE ---
+// --- MAIN HOOK ---
 export const useFirestore = () => {
   const [userId, setUserId] = useState('mauro_seu_1988'); 
   const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // STATO PER TRACCIARE L'ULTIMO DATO SALVATO (EVITA LOOP)
+  const [lastSyncedData, setLastSyncedData] = useState(null);
 
-  // A. Caricamento Dati (UNSUBSCRIBE + TIMEOUT CRITICA)
+  // A. Data Loading (CRITICAL UNSUBSCRIBE + TIMEOUT)
   useEffect(() => {
     if (!userId) {
       setIsLoading(false);
       return; 
     }
     
-    // Riferimento al documento creato qui SOLO per onSnapshot
     const docRef = doc(db, 'users', userId);
     
-    // 1. Imposta il timeout di fallback
+    // 1. Set the fallback timeout
     let timeoutId = setTimeout(() => {
         if (isLoading) {
-            console.warn("Timeout di caricamento. Forza l'interfaccia ad aprirsi con i dati locali.");
+            console.warn("Loading Timeout. Forcing interface open with local data.");
             setIsLoading(false); 
         }
     }, LOAD_TIMEOUT_MS);
     
-    // 2. Listener onSnapshot
+    // 2. onSnapshot Listener (Reads)
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      clearTimeout(timeoutId); // Il listener ha risposto: annulla il timeout
+      clearTimeout(timeoutId); // Cancel timeout if response is received
       if (docSnap.exists()) {
-        setUserData(docSnap.data());
+        const data = docSnap.data();
+        setUserData(data);
+        setLastSyncedData(data); // 🆕 Aggiorna l'ultimo stato sincronizzato
       } else {
-        setUserData({}); 
+        setUserData({
+            completedSets: {},
+            customWeights: {},
+            skippedDays: {},
+            progressData: { 
+                start: { weight: '67.3', chest: '', arm_r: '', arm_l: '', leg_r: '', leg_l: '', waist: '', date: '' },
+                end: { weight: '', chest: '', arm_r: '', arm_l: '', leg_r: '', leg_l: '', waist: '', date: '' }
+            }
+        }); 
       }
       setIsLoading(false);
     }, (error) => {
-      // 3. In caso di errore (es. Quota Exceeded)
+      // 3. In case of error (e.g., Quota Exceeded)
       clearTimeout(timeoutId); 
-      console.error("Errore onSnapshot (Lettura dati): Forza l'apertura interfaccia.", error);
+      console.error("onSnapshot Error (Failed Read): Forcing interface open.", error);
       setIsLoading(false);
     });
 
-    // 🛑 FUNZIONE DI CLEANUP (UNSUBSCRIBE):
+    // 🛑 CLEANUP FUNCTION (UNSUBSCRIBE): Blocks read consumption on refresh
     return () => {
-      clearTimeout(timeoutId); // Pulizia del timeout
+      clearTimeout(timeoutId);
       unsubscribe(); 
     };
     
   }, [userId]);
 
 
-  // B. Funzione di Processo Coda (Chiamata da GymTracker.jsx)
+  // B. Process Queue Function (Auto-Retry)
   const processOfflineQueue = async () => {
     const queue = loadOfflineQueue();
     if (queue.length === 0 || !userId) return;
@@ -82,8 +94,6 @@ export const useFirestore = () => {
 
     for (let i = 0; i < queue.length; i++) {
       const item = queue[i];
-      
-      // ⚠️ CORREZIONE SCOPE: docRef è creato qui!
       const docRef = doc(db, 'users', userId);
       
       try {
@@ -93,26 +103,25 @@ export const useFirestore = () => {
         }, { merge: true }); 
         successfulIndexes.push(i);
       } catch (e) {
-        console.error(`Fallimento continuo nel sincronizzare ${item.type}. L'elemento rimane in coda.`, e);
+        console.error(`Persistent failure in synchronizing ${item.type}. Item remains in queue.`, e);
       }
     }
 
     if (successfulIndexes.length > 0) {
         const newQueue = queue.filter((_, index) => !successfulIndexes.includes(index));
         localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(newQueue));
-        console.log(`Sincronizzazione completata: ${successfulIndexes.length} elementi inviati.`);
+        console.log(`Synchronization complete: ${successfulIndexes.length} items sent.`);
     }
   };
 
 
-  // C. Funzioni di Salvataggio (WRITE-BEHIND IMPLEMENTAZIONE)
+  // C. Save Functions (WRITE-BEHIND IMPLEMENTATION)
   const saveToDb = async (field, data) => {
     if (!userId) {
         saveToOfflineQueue(field, data);
         return;
     }
     
-    // ⚠️ CORREZIONE SCOPE: docRef è creato qui!
     const docRef = doc(db, 'users', userId);
     
     try {
@@ -121,9 +130,13 @@ export const useFirestore = () => {
         [field]: data,
         lastUpdated: serverTimestamp()
       }, { merge: true }); 
+      
+      // 🆕 Aggiorna lo stato sincronizzato dopo il successo
+      setLastSyncedData(prev => ({ ...prev, [field]: data }));
+
     } catch (error) {
       // 🛡️ Salvataggio in coda offline in caso di fallimento
-      console.error(`Scrittura ${field} fallita. Salvataggio in coda offline.`, error);
+      console.error(`Write to ${field} failed. Salvataggio in coda offline.`, error);
       saveToOfflineQueue(field, data);
     }
   };
@@ -141,6 +154,7 @@ export const useFirestore = () => {
     saveCustomWeights, 
     saveSkippedDays, 
     saveProgressData,
-    processOfflineQueue 
+    processOfflineQueue,
+    lastSyncedData // 🆕 Esporta il dato per il controllo anti-loop
   };
 };
