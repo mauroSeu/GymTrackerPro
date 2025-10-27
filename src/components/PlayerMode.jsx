@@ -115,11 +115,11 @@ const PlayerMode = ({
         <div className="w-full px-6 flex justify-center">
           
           {/* RIQUADRO BIANCO - Exercise Card */}
-          <div className="bg-[#2c3855] bg-opacity-95 rounded-3xl shadow-2xl max-w-xs w-full p-[3px]">
-            <div className="bg-[#2c3855] rounded-[21px] p-5 h-[24rem] flex flex-col">
+          <div className="bg-[#2c3855] bg-opacity-95 rounded-3xl shadow-2xl max-w-xs w-full p-1">
+            <div className="bg-[#2c3855] rounded-[21px] p-5 flex flex-col justify-between min-h-[23rem]">
               
               {/* Header Esercizio - SEMPRE VISIBILE - ALTEZZA FISSA */}
-              <div className="text-center mb-4 h-[88px] flex flex-col justify-center">
+              <div className="text-center mb-4 flex-shrink-0">
                 <div className="text-xs font-semibold text-gray-400 mb-1">
                   Esercizio {currentExercise + 1}/{currentDayData.exercises.length}
                 </div>
@@ -131,9 +131,10 @@ const PlayerMode = ({
                 </p>
               </div>
 
-              {/* STATO 2: Esercizio Completato */}
-              {isExerciseCompleted && (
-                <>
+              <div className="flex-grow flex flex-col justify-center">
+                {/* STATO 2: Esercizio Completato */}
+                {isExerciseCompleted && (
+                  <div className="flex flex-col justify-center">
                   {/* Exercise Details - 3 colonne: Serie, Ripetizioni, Peso */}
                   <div className="grid grid-cols-3 gap-3 mb-4">
                     <div className="bg-[#3a4a6e] rounded-xl p-3 text-center">
@@ -181,12 +182,12 @@ const PlayerMode = ({
                     </div>
                     <span className="font-semibold text-lg text-green-300">Esercizio Completato</span>
                   </div>
-                </>
-              )}
+                  </div>
+                )}
 
-              {/* STATO 3: Serie Attiva & Timer di Recupero (COMBINED) */}
-              {!isExerciseCompleted && (
-                <>
+                {/* STATO 3: Serie Attiva & Timer di Recupero (COMBINED) */}
+                {!isExerciseCompleted && (
+                  <div className="flex flex-col justify-center">
                   {/* Exercise Details - 3 colonne: Serie, Ripetizioni, Peso */}
                   <div className="grid grid-cols-3 gap-3 mb-4">
                     <div className="bg-[#3a4a6e] rounded-xl p-3 text-center">
@@ -260,9 +261,10 @@ const PlayerMode = ({
                       <Check className="w-6 h-6" />
                       Completa Serie
                     </button>
-                  )}
-                </>
-              )}
+                  )}                  
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
